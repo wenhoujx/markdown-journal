@@ -1,34 +1,64 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 const vscode = require('vscode');
+const fs = require('fs')
+const path = require('path')
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
+const configKey = 'markdown-journal'
+const journalDir = 'journal-dir'
+const toTomorrowTags = 'to-tomorrow-tags'
 
-/**
- * @param {vscode.ExtensionContext} context
- */
-function activate(context) {
-
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "markdown-journal" is now active!');
-
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with  registerCommand
-	// The commandId parameter must match the command field in package.json
-	let disposable = vscode.commands.registerCommand('markdown-journal.helloWorld', function () {
-		// The code you place here will be executed every time your command is executed
-
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from markdown-journal!');
-	});
-
-	context.subscriptions.push(disposable);
+function _loadConfig(context) {
+	const extensionConfig = vscode.workspace.getConfiguration(configKey)
+	return {
+		journalDir: extensionConfig.get(journalDir),
+		tomorrowTags: extensionConfig.get(toTomorrowTags)
+	}
 }
 
-// This method is called when your extension is deactivated
-function deactivate() {}
+function _today() {
+	const d = new Date()
+	const year = d.getFullYear()
+	const month = (d.getMonth() + 1).toString().padStart(2, "0");
+	const day = d.getDate().toString().padStart(2, "0");
+	let dayOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d.getDay()];
+
+	return {
+		year, month, day, dayOfWeek
+	}
+}
+
+function _createTodayFile(dir) {
+	const t = _today()
+	const todayFile = `journal-${t.year}-${t.month}-${t.day}`
+
+	if (!fs.existsSync(dir)) {
+		fs.mkdirSync(dir, { recursive: true })
+	}
+	const filepath = path.join(dir, todayFile)
+	if (!fs.existsSync(filepath)) {
+		const newFileContent = `# Journal ${d.year} ${d.month} ${d.day} ${d.dayOfWeek}`
+		fs.writeFileSync() 
+	}
+}
+
+
+function today(config) {
+
+}
+function refresh(config) {
+
+}
+function addTag(config) {
+
+}
+function activate(context) {
+	const config = _loadConfig(context)
+
+	context.subscriptions.push(vscode.commands.registerCommand('markdown-journal.today', () => today(config)));
+	context.subscriptions.push(vscode.commands.registerCommand('markdown-journal.refresh', () => refresh(config)));
+	context.subscriptions.push(vscode.commands.registerCommand('markdown-journal.add-tag', () => addTag(config)));
+}
+
+function deactivate() { }
 
 module.exports = {
 	activate,

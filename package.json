@@ -10,14 +10,29 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:markdown-journal.helloWorld"
+    "onCommand:markdown-journal.today",
+    "onCommand:markdown-journal.add-tag",
+    "onCommand:markdown-journal.refresh"
   ],
   "main": "./extension.js",
   "contributes": {
-    "commands": [{
-      "command": "markdown-journal.helloWorld",
-      "title": "Hello World"
-    }]
+    "commands": [
+      {
+        "command": "markdown-journal.today",
+        "title": "Today",
+        "category": "Markdown Journal"
+      },
+      {
+        "command": "markdown-journal.add-tag",
+        "title": "Add Tag",
+        "category": "Markdown Journal"
+      },
+      {
+        "command": "markdown-journal.refresh",
+        "title": "Refresh",
+        "category": "Markdown Journal"
+      }
+    ]
   },
   "scripts": {
     "lint": "eslint .",
