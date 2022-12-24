@@ -1,8 +1,19 @@
 {
   "name": "markdown-journal",
   "displayName": "markdown-journal",
-  "description": "",
-  "version": "0.0.1",
+  "description": "markdown journal and task tracking",
+  "version": "0.0.2",
+  "publisher": "wenhoujx",
+  "author": {
+    "name": "Wenshuai Hou",
+    "email": "wenhoujx@gmail.com"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/wenhoujx/markdown-journal",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wenhoujx/markdown-journal"
+  },
   "engines": {
     "vscode": "^1.74.0"
   },
@@ -12,7 +23,7 @@
   "activationEvents": [
     "onCommand:markdown-journal.today",
     "onCommand:markdown-journal.add-tag",
-    "onCommand:markdown-journal.refresh",
+    "onCommand:markdown-journal.compute-times",
     "onCommand:markdown-journal.journals",
     "onCommand:markdown-journal.start-task",
     "onCommand:markdown-journal.end-task"
@@ -31,8 +42,8 @@
         "category": "Markdown Journal"
       },
       {
-        "command": "markdown-journal.refresh",
-        "title": "Refresh One Journal",
+        "command": "markdown-journal.compute-times",
+        "title": "Compute today's times",
         "category": "Markdown Journal"
       },
       {

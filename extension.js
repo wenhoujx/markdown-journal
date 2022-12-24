@@ -11,7 +11,7 @@ const defaultTags = 'default-tags'
 
 const journalPrefix = 'journal'
 const journalIntervalPrefix = 'journal-interval'
-const isDebug = true
+const isDebug = false
 
 function _log(logString) {
 	isDebug && console.log(logString)
@@ -154,7 +154,7 @@ function today(config) {
 	_openAndShowFile(todayFilePath)
 }
 
-function refresh(config) {
+function computeTimes(config) {
 	const todayFilePath = _filePath(config.journalDir, _journalFileName(_todayDate()))
 	// parse the file without opening the file
 	const content = _getJournalContent(todayFilePath)
@@ -385,7 +385,7 @@ function activate(context) {
 
 	context.subscriptions.push(vscode.commands.registerCommand('markdown-journal.today', () => today(config)));
 	context.subscriptions.push(vscode.commands.registerCommand('markdown-journal.journals', () => journals(config)));
-	context.subscriptions.push(vscode.commands.registerCommand('markdown-journal.refresh', () => refresh(config)));
+	context.subscriptions.push(vscode.commands.registerCommand('markdown-journal.compute-times', () => computeTimes(config)));
 	context.subscriptions.push(vscode.commands.registerCommand('markdown-journal.add-tag', () => addTag(config)));
 	context.subscriptions.push(vscode.commands.registerCommand('markdown-journal.start-task', () => startTask(config)));
 	context.subscriptions.push(vscode.commands.registerCommand('markdown-journal.stop-task', () => stopTask(config)));
