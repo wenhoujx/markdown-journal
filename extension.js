@@ -31,33 +31,69 @@ function _todayDate() {
 	const year = d.getFullYear()
 	const month = (d.getMonth() + 1).toString().padStart(2, "0");
 	const day = d.getDate().toString().padStart(2, "0");
-	let dayOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d.getDay()];
-
 	return {
-		year, month, day, dayOfWeek
+		year, month, day
 	}
 }
 
-function _computeNewTodayFileContent(d) {
-	const newFileContent = `# Journal ${d.year} ${d.month} ${d.day} ${d.dayOfWeek}\n`
-	return newFileContent
+function _computeNewTodayFileContent(config) {
+	const d = new Date()
+	let dayOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d.getDay()];
+	let content = [`# Journal ${d.getFullYear()} ${d.getMonth()} ${d.getDay()} ${dayOfWeek}`]
+	content = content.concat(_yesterdayCarryOver(config))
+	return content.join('\n')
 }
 
-function _todayFileName() {
-	const t = _todayDate()
+function _yesterdayCarryOver(config) {
+	const yesterday = new Date(Date.now() - 86400000)
+	const fileName = _journalFileName({
+		year: yesterday.getFullYear(),
+		month: yesterday.getMonth() + 1,
+		day: yesterday.getDate()
+	})
+	const content = _getJournalContent(_filePath(config.journalDir, fileName))
+	if (!content) {
+		return []
+	}
+	const lines = content.split(/\r?\n/)
+	const taskLines = lines.flatMap((line, i) => _isTaskHeader(line) ? [i] : [])
+	let filteredLine = []
+	for (let i = 0; i < taskLines.length; i++) {
+		if (hasIntersection(_getTaskTags(lines[taskLines[i]]), config.tomorrowTags)) {
+			filteredLine = filteredLine.concat(
+				lines.slice(taskLines[i],
+					i === taskLines.length - 1 ?
+						lines.length : taskLines[i + 1])
+			)
+		}
+	}
+	return filteredLine
+}
+
+function hasIntersection(aList, bList) {
+	for (let a of aList) {
+		for (let b of bList) {
+			if (a === b) {
+				return true
+			}
+		}
+	}
+	return false
+}
+function _journalFileName(t) {
 	return `${journalPrefix}-${t.year}-${t.month}-${t.day}.md`
 }
 
-function _createTodayFileIfMissing(dir) {
-	const t = _todayDate()
-	const todayFile = _todayFileName()
+function _createTodayFileIfMissing(config) {
+	const dir = config.journalDir
+	const todayFile = _journalFileName(_todayDate())
 
 	if (!fs.existsSync(dir)) {
 		fs.mkdirSync(dir, { recursive: true })
 	}
 	const filepath = _filePath(dir, todayFile)
 	if (!fs.existsSync(filepath)) {
-		fs.writeFileSync(filepath, _computeNewTodayFileContent(t))
+		fs.writeFileSync(filepath, _computeNewTodayFileContent(config))
 	}
 }
 
@@ -72,7 +108,7 @@ function _filePath(dir, fileName) {
 
 function journals(config) {
 	// list all journals 
-	_createTodayFileIfMissing(config.journalDir)
+	_createTodayFileIfMissing(config)
 	const journalFiles = fs.readdirSync(config.journalDir, { withFileTypes: true })
 		.filter(item => !item.isDirectory())
 		.filter(item => item.name.startsWith(journalPrefix))
@@ -98,7 +134,7 @@ function journals(config) {
 
 async function _openNewTextDocument(content) {
 	const document = await vscode.workspace.openTextDocument({
-		language: 'markdown', 
+		language: 'markdown',
 		content
 	});
 	vscode.window.showTextDocument(document);
@@ -113,13 +149,13 @@ async function _openAndShowFile(filepath) {
 }
 
 function today(config) {
-	const todayFileName = _todayFileName()
+	const todayFileName = _journalFileName(_todayDate())
 	const todayFilePath = _filePath(config.journalDir, todayFileName)
 	_openAndShowFile(todayFilePath)
 }
 
 function refresh(config) {
-	const todayFilePath = _filePath(config.journalDir, _todayFileName())
+	const todayFilePath = _filePath(config.journalDir, _journalFileName(_todayDate()))
 	// parse the file without opening the file
 	const content = _getJournalContent(todayFilePath)
 	const computeTotalTimes = content.split(/\r?\n/).reduce((acc, line) => {
@@ -243,7 +279,7 @@ function _getAllTaskHeaders(content) {
 
 
 function startTask(config) {
-	const todayFilePath = _filePath(config.journalDir, _todayFileName())
+	const todayFilePath = _filePath(config.journalDir, _journalFileName(_todayDate()))
 	// parse the file without opening the file
 	const content = _getJournalContent(todayFilePath)
 	const pick = vscode.window.createQuickPick()
@@ -310,7 +346,12 @@ function _findLineNumber(doc, line) {
 }
 
 function _getJournalContent(filepath) {
-	return fs.readFileSync(filepath, 'utf8')
+	if (fs.existsSync(filepath)) {
+		return fs.readFileSync(filepath, 'utf8')
+	} else {
+		return null
+	}
+
 }
 
 function _replaceLine(lineNumber, newLineText) {
@@ -324,7 +365,7 @@ function _replaceLine(lineNumber, newLineText) {
 }
 
 function stopTask(config) {
-	const todayFilePath = _filePath(config.journalDir, _todayFileName())
+	const todayFilePath = _filePath(config.journalDir, _journalFileName(_todayDate()))
 	// parse the file without opening the file
 	const content = _getJournalContent(todayFilePath)
 	_writeFile(todayFilePath, _stopAllTasks(content))
@@ -340,7 +381,7 @@ function isInJournal() {
 
 function activate(context) {
 	const config = _loadConfig(context)
-	_createTodayFileIfMissing(config.journalDir)
+	_createTodayFileIfMissing(config)
 
 	context.subscriptions.push(vscode.commands.registerCommand('markdown-journal.today', () => today(config)));
 	context.subscriptions.push(vscode.commands.registerCommand('markdown-journal.journals', () => journals(config)));
