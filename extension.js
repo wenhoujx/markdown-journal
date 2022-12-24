@@ -96,6 +96,15 @@ function journals(config) {
 	pick.show()
 }
 
+async function _openNewTextDocument(content) {
+	const document = await vscode.workspace.openTextDocument({
+		language: 'markdown', 
+		content
+	});
+	vscode.window.showTextDocument(document);
+
+}
+
 async function _openAndShowFile(filepath) {
 	const doc = await vscode.workspace.openTextDocument(
 		filepath
@@ -110,7 +119,44 @@ function today(config) {
 }
 
 function refresh(config) {
+	const todayFilePath = _filePath(config.journalDir, _todayFileName())
+	// parse the file without opening the file
+	const content = _getJournalContent(todayFilePath)
+	const computeTotalTimes = content.split(/\r?\n/).reduce((acc, line) => {
+		if (_isTaskHeader(line)) {
+			acc.push({
+				line,
+				total: 0
+			})
+		} else if (line.startsWith(journalIntervalPrefix)) {
+			const m = /^journal-interval: (.+) - (.*)$/.exec(line)
+			if (m[2] === 'Running') {
+				acc[acc.length - 1].total += Date.now() - Date.parse(m[1]).valueOf()
+			} else {
+				acc[acc.length - 1].total += Date.parse(m[2]).valueOf() - Date.parse(m[1]).valueOf()
+			}
+		}
+		return acc
+	}, [])
+	const formatted = computeTotalTimes.flatMap(({ line, total }) => [line, _msToString(total)])
+	_openNewTextDocument(formatted.join("\n"))
+}
 
+function _msToString(ms) {
+	const inSeconds = Math.floor(ms / 1000);
+	const inMinutes = Math.floor(inSeconds / 60);
+	const inHours = Math.floor(inMinutes / 60);
+
+	const seconds = inSeconds % 60;
+	const minutes = inMinutes % 60;
+	let str = seconds + 's'
+	if (minutes) {
+		str = minutes + 'm' + str
+	}
+	if (inHours) {
+		str = inHours + 'h' + str
+	}
+	return str
 }
 
 function addTag(config) {
