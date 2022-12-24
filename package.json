@@ -12,7 +12,10 @@
   "activationEvents": [
     "onCommand:markdown-journal.today",
     "onCommand:markdown-journal.add-tag",
-    "onCommand:markdown-journal.refresh"
+    "onCommand:markdown-journal.refresh",
+    "onCommand:markdown-journal.journals",
+    "onCommand:markdown-journal.start-task",
+    "onCommand:markdown-journal.end-task"
   ],
   "main": "./extension.js",
   "contributes": {
@@ -29,7 +32,22 @@
       },
       {
         "command": "markdown-journal.refresh",
-        "title": "Refresh",
+        "title": "Refresh One Journal",
+        "category": "Markdown Journal"
+      },
+      {
+        "command": "markdown-journal.journals",
+        "title": "List All Journals",
+        "category": "Markdown Journal"
+      },
+      {
+        "command": "markdown-journal.start-task",
+        "title": "Start Task",
+        "category": "Markdown Journal"
+      },
+      {
+        "command": "markdown-journal.stop-task",
+        "title": "Stop Task",
         "category": "Markdown Journal"
       }
     ]
