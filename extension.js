@@ -8,7 +8,7 @@ const journalDir = 'journal-dir'
 const toTomorrowTags = 'to-tomorrow-tags'
 const defaultTags = 'default-tags'
 
-
+let statusBarItem = null
 const journalPrefix = 'journal'
 const journalIntervalPrefix = 'journal-interval'
 const isDebug = true
@@ -383,7 +383,7 @@ function startTask(config) {
 			// stop all tasks, only one task can be running, multi-tasking is forbidden. 
 			const newContent = _startTimingTask(_stopAllTasks(content), sel.label)
 			_writeFile(todayFilePath, newContent)
-
+			_updateStatusBar(config)
 		}
 		pick.hide()
 	})
@@ -451,6 +451,7 @@ function stopTask(config) {
 	// parse the file without opening the file
 	const content = _getJournalContent(todayFilePath)
 	_writeFile(todayFilePath, _stopAllTasks(content))
+	_updateStatusBar(config)
 }
 
 function isInJournal() {
@@ -461,9 +462,30 @@ function isInJournal() {
 	return /journal-(.*).md/.test(fn)
 }
 
+function _updateStatusBar(config) {
+	const todayFilePath = _filePath(config.journalDir, _journalFileName(_todayDate()))
+	// parse the file without opening the file
+	const content = _getJournalContent(todayFilePath)
+	const runningTask = _runningTask(content)
+	if (statusBarItem) {
+		statusBarItem.dispose()
+	}
+	if (runningTask) {
+		statusBarItem = vscode.window.createStatusBarItem(
+			vscode.StatusBarAlignment.Left,
+			5
+		)
+		statusBarItem.text = "MJ $(timeline-view-icon)"
+		statusBarItem.tooltip = `click to stop task: ${runningTask}`
+		statusBarItem.command = 'markdown-journal.stop-task'
+		statusBarItem.show()
+	}
+}
+
 function activate(context) {
 	const config = _loadConfig(context)
 	_createTodayFileIfMissing(config)
+	_updateStatusBar(config)
 
 	context.subscriptions.push(vscode.commands.registerCommand('markdown-journal.today', () => today(config)));
 	context.subscriptions.push(vscode.commands.registerCommand('markdown-journal.journals', () => journals(config)));
