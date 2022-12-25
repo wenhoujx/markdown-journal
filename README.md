@@ -44,3 +44,4 @@ end task
 - [x] use local locale for timestamp.
 - [ ] compute this weeks times.
 - [ ] button in status bar to stop a task.
+- [ ] fix configuration 

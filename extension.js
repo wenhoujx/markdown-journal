@@ -348,7 +348,7 @@ function _runningTask(content) {
 		}
 		return false
 	})
-	return task[0]
+	return task ? task[0] : null
 }
 
 function startTask(config) {
@@ -369,6 +369,8 @@ function startTask(config) {
 			// stop all tasks, only one task can be running, multi-tasking is forbidden. 
 			const newContent = _startTimingTask(_stopAllTasks(content), sel.label)
 			_writeFile(todayFilePath, newContent)
+			const statusBarItem = vscode.window.createStatusBarItem('left', 5)
+			statusBarItem.text = 'running'
 		}
 		pick.hide()
 	})
