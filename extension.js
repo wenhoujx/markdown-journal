@@ -13,6 +13,38 @@ const journalPrefix = 'journal'
 const journalIntervalPrefix = 'journal-interval'
 const isDebug = false
 
+function _journalIntervalRegex() {
+	return /^- journal-interval: (.+) - (.*)$/
+}
+
+function _parseJournalInterval(line) {
+	if (line.startsWith(`- ${journalIntervalPrefix}`)) {
+		const m = _journalIntervalRegex().exec(line)
+		if (!m) {
+			return null
+		} else {
+			return { start: m[1], end: m[2] }
+		}
+	} else {
+		return null
+	}
+}
+
+function _newInterval() {
+	const now = new Date().toISOString()
+	return `- ${journalIntervalPrefix}: ${now} - Running`
+}
+
+function _tryStopInterval(line) {
+	const now = new Date().toISOString()
+	const parsed = _parseJournalInterval(line)
+	if (!parsed) {
+		return line
+	} else {
+		return `- ${journalIntervalPrefix}: ${parsed.start} - ${now}`
+	}
+}
+
 function _log(logString) {
 	isDebug && console.log(logString)
 }
@@ -39,38 +71,44 @@ function _todayDate() {
 function _computeNewTodayFileContent(config) {
 	const d = new Date()
 	let dayOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d.getDay()];
-	let content = [`# Journal ${d.getFullYear()} ${d.getMonth()} ${d.getDay()} ${dayOfWeek}`]
-	content = content.concat(_yesterdayCarryOver(config))
+	let content = [`# Journal ${d.getFullYear()} ${d.getMonth() + 1} ${d.getDate()} ${dayOfWeek}`]
+	content = content.concat(_previousCarryOver(config))
 	return content.join('\n')
 }
 
-function _yesterdayCarryOver(config) {
-	const yesterday = new Date(Date.now() - 86400000)
-	const fileName = _journalFileName({
-		year: yesterday.getFullYear(),
-		month: yesterday.getMonth() + 1,
-		day: yesterday.getDate()
-	})
-	const content = _getJournalContent(_filePath(config.journalDir, fileName))
+function _splitLinesByTask(content) {
 	if (!content) {
 		return []
 	}
 	const lines = content.split(/\r?\n/)
 	const taskLines = lines.flatMap((line, i) => _isTaskHeader(line) ? [i] : [])
-	let filteredLine = []
+	const tasks = []
 	for (let i = 0; i < taskLines.length; i++) {
-		if (hasIntersection(_getTaskTags(lines[taskLines[i]]), config.tomorrowTags)) {
-			filteredLine = filteredLine.concat(
-				lines.slice(taskLines[i],
-					i === taskLines.length - 1 ?
-						lines.length : taskLines[i + 1])
-			)
-		}
+		tasks.push(lines.slice(taskLines[i],
+			i === taskLines.length - 1 ?
+				lines.length : taskLines[i + 1]))
 	}
-	return filteredLine
+	return {
+		header: taskLines.length ? lines.slice(0, taskLines[0]) : lines,
+		tasks
+	}
 }
 
-function hasIntersection(aList, bList) {
+function _previousCarryOver(config) {
+	// compute latest previous content that should be moved over to todays.
+	// return array of lines
+	const latestJournal = _first(_getAllJournals(config))
+	if (!latestJournal) {
+		return []
+	} else {
+		const content = _getJournalContent(_filePath(config.journalDir, latestJournal))
+		const { tasks } = _splitLinesByTask(content)
+		return tasks.filter(task => _hasIntersection(_getTaskTags(task[0]), config.tomorrowTags))
+			.flatMap(t => t)
+	}
+}
+
+function _hasIntersection(aList, bList) {
 	for (let a of aList) {
 		for (let b of bList) {
 			if (a === b) {
@@ -80,6 +118,7 @@ function hasIntersection(aList, bList) {
 	}
 	return false
 }
+
 function _journalFileName(t) {
 	return `${journalPrefix}-${t.year}-${t.month}-${t.day}.md`
 }
@@ -106,16 +145,20 @@ function _filePath(dir, fileName) {
 	return path.join(dir, fileName)
 }
 
-function journals(config) {
-	// list all journals 
-	_createTodayFileIfMissing(config)
-	const journalFiles = fs.readdirSync(config.journalDir, { withFileTypes: true })
+function _getAllJournals(config) {
+	// return all journal files sorted with latest first. 
+	return fs.readdirSync(config.journalDir, { withFileTypes: true })
 		.filter(item => !item.isDirectory())
 		.filter(item => item.name.startsWith(journalPrefix))
 		.map(item => item.name)
 		.sort()
 		// put today at the top 
 		.reverse()
+}
+function journals(config) {
+	// list all journals 
+	_createTodayFileIfMissing(config)
+	const journalFiles = _getAllJournals(config)
 	const pick = vscode.window.createQuickPick()
 	pick.items = journalFiles.map(jf => ({
 		label: jf,
@@ -138,7 +181,6 @@ async function _openNewTextDocument(content) {
 		content
 	});
 	vscode.window.showTextDocument(document);
-
 }
 
 async function _openAndShowFile(filepath) {
@@ -158,19 +200,16 @@ function computeTimes(config) {
 	const todayFilePath = _filePath(config.journalDir, _journalFileName(_todayDate()))
 	// parse the file without opening the file
 	const content = _getJournalContent(todayFilePath)
+	let parsed = null
 	const computeTotalTimes = content.split(/\r?\n/).reduce((acc, line) => {
 		if (_isTaskHeader(line)) {
 			acc.push({
 				line,
 				total: 0
 			})
-		} else if (line.startsWith(journalIntervalPrefix)) {
-			const m = /^journal-interval: (.+) - (.*)$/.exec(line)
-			if (m[2] === 'Running') {
-				acc[acc.length - 1].total += Date.now() - Date.parse(m[1]).valueOf()
-			} else {
-				acc[acc.length - 1].total += Date.parse(m[2]).valueOf() - Date.parse(m[1]).valueOf()
-			}
+		} else if (parsed = _parseJournalInterval(line)) {
+			const { start, end } = parsed
+			acc[acc.length - 1].total += (end === 'Running' ? Date.now() : Date.parse(end).valueOf()) - Date.parse(start).valueOf()
 		}
 		return acc
 	}, [])
@@ -230,12 +269,12 @@ function _isTaskHeader(text) {
 	return text.startsWith('## ')
 }
 
-function _getTaskTags(lineText) {
-	const i = lineText.lastIndexOf('(:')
+function _getTaskTags(taskHeader) {
+	const i = taskHeader.lastIndexOf('(:')
 	if (i === -1) {
 		return []
 	} else {
-		const tagString = lineText.slice(i + 2, lineText.lastIndexOf(':)'))
+		const tagString = taskHeader.slice(i + 2, taskHeader.lastIndexOf(':)'))
 		return tagString.split(":").map(e => e.trim()).filter(e => e)
 	}
 }
@@ -263,20 +302,14 @@ function _unique(lst) {
 }
 
 function _getAllTags(content, additionalTags) {
-	return _unique(_getAllTaskHeaders(content).flatMap(line => _getTaskTags(line)).concat(additionalTags))
-}
+	return _unique(
+		_splitLinesByTask(content)
+			.tasks
+			.flatMap(task => _getTaskTags(task[0]))
+			.concat(additionalTags)
 
-function _getAllTaskHeaders(content) {
-	return content.split(/\r?\n/).map(line => {
-		if (_isTaskHeader(line)) {
-			return line
-		} else {
-			return null
-		}
-	})
-		.filter(e => e)
+	)
 }
-
 
 function startTask(config) {
 	const todayFilePath = _filePath(config.journalDir, _journalFileName(_todayDate()))
@@ -284,13 +317,14 @@ function startTask(config) {
 	const content = _getJournalContent(todayFilePath)
 	const pick = vscode.window.createQuickPick()
 	pick.placeholder = "pick a task to start"
-	pick.items = _getAllTaskHeaders(content)
-		.map(line => ({
-			label: line
-		}))
+	pick.items = _splitLinesByTask(content).tasks.map(task => task[0]).map(line => ({
+		label: line
+	}))
+
 	pick.onDidAccept(() => {
 		const sel = _first(pick.selectedItems)
 		if (!sel) { return }
+		// stop all tasks, only one task can be running, multi-tasking is forbidden. 
 		const newContent = _startTimingTask(_stopAllTasks(content), sel.label)
 		_writeFile(todayFilePath, newContent)
 		pick.hide()
@@ -302,47 +336,37 @@ function _writeFile(filepath, content) {
 	fs.writeFileSync(filepath, content)
 }
 
+
 function _startTimingTask(content, taskTitle) {
-	const now = new Date().toISOString()
-	return content.split("\n").flatMap(line => {
-		if (line === taskTitle) {
-			return [line, `${journalIntervalPrefix}: ${now} - Running`]
+	const { header, tasks } = _splitLinesByTask(content)
+	const lines = tasks.flatMap(task => {
+		if (task[0] !== taskTitle) {
+			return task
 		} else {
-			return [line]
+			const intervalsIndex = task.findIndex(line => _parseJournalInterval(line))
+			if (intervalsIndex === -1) {
+				// first interval 
+				task.splice(1, 0, _newInterval())
+			} else {
+				// put new interval before all other intervals 
+				task.splice(intervalsIndex, 0, _newInterval())
+			}
+			return task
 		}
 	})
-		.join('\n')
+	return (header.concat(lines)).join('\n')
 }
 
 function _stopAllTasks(content) {
-	const now = new Date().toISOString()
 	return content.split(/\r?\n/)
 		.map(line => {
-			if (line.startsWith(journalIntervalPrefix) && line.endsWith('Running')) {
-				const m = /^journal-interval: (.+) - (.*)$/.exec(line)
-				if (m && (m[2] === 'Running')) {
-					return `${journalIntervalPrefix}: ${m[1]} - ${now}`
-				} else {
-					return line
-				}
-			} else {
+			const parsed = _parseJournalInterval(line)
+			if (!parsed) {
 				return line
+			} else {
+				return _tryStopInterval(line)
 			}
-		})
-		.join('\n')
-}
-
-function _insertLine(lineNumber, lineText) {
-	const editor = vscode.window.activeTextEditor
-	editor.edit(builder => {
-		builder.insert(new vscode.Position(lineNumber, 0), lineText)
-	})
-}
-
-function _findLineNumber(doc, line) {
-	return [...new Array(doc.lineCount)].find((e, i) => {
-		return doc.lineAt(i) === line
-	})
+		}).join('\n')
 }
 
 function _getJournalContent(filepath) {
