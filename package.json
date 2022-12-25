@@ -2,7 +2,7 @@
   "name": "markdown-journal",
   "displayName": "markdown-journal",
   "description": "markdown journal and task tracking",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "publisher": "wenhoujx",
   "author": {
     "name": "Wenshuai Hou",
@@ -37,6 +37,26 @@
         "markdown-journal.journal-dir": {
           "type": "string",
           "description": "A custom full path in which journals will be stored"
+        },
+        "markdown-journal.default-tags": {
+          "type": "array",
+          "description": "list of default tags",
+          "default": [
+            "todo"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "markdown-journal.to-tomorrow-tags": {
+          "type": "array",
+          "description": "a list of tags to carry over to tomorrow's journal",
+          "default": [
+            "todo"
+          ],
+          "items": {
+            "type": "string"
+          }
         }
       }
     },

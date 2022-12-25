@@ -42,6 +42,7 @@ end task
 - [x] compute times for each tag
 - [x] use local locale for timestamp.
 - [x] compute this weeks times.
-- [ ] button in status bar to stop a task.
-- [ ] fix configuration.
+- [x] button in status bar to stop a task.
+- [x] fix configuration.
 - [x] compute only today's time interval, ignore yesterday's carry over.
+- [ ] config default tags. default-tags
