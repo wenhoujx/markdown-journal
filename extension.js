@@ -11,7 +11,7 @@ const defaultTags = 'default-tags'
 let statusBarItem = null
 const journalPrefix = 'journal'
 const journalIntervalPrefix = 'journal-interval'
-const isDebug = true
+const isDebug = false
 
 function _journalIntervalRegex() {
 	return /^- journal-interval: (.+) - (.*)$/
