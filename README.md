@@ -37,11 +37,11 @@ intervals are tracked by a list in task section, prefixed by `journal-interval`
 
 end task
 
-
 ## TODO
 
 - [x] compute times for each tag
 - [x] use local locale for timestamp.
-- [ ] compute this weeks times.
+- [x] compute this weeks times.
 - [ ] button in status bar to stop a task.
-- [ ] fix configuration 
+- [ ] fix configuration.
+- [x] compute only today's time interval, ignore yesterday's carry over.

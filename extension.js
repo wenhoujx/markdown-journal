@@ -1,7 +1,6 @@
 const vscode = require('vscode');
 const fs = require('fs')
 const path = require('path');
-const { getAllJSDocTags } = require('typescript');
 
 // configs 
 const configKey = 'markdown-journal'
@@ -197,6 +196,13 @@ function today(config) {
 	_openAndShowFile(todayFilePath)
 }
 
+function _todayEarliestDate() {
+	const d = new Date()
+	d.setHours(0)
+	d.setMinutes(0)
+	d.setSeconds(0)
+	return d
+}
 function computeTimes(config) {
 	const todayFilePath = _filePath(config.journalDir, _journalFileName(_todayDate()))
 	// parse the file without opening the file
@@ -209,7 +215,16 @@ function computeTimes(config) {
 				return 0
 			} else {
 				const { start, end } = m
-				return (end === 'Running' ? Date.now() : Date.parse(end).valueOf()) - Date.parse(start).valueOf()
+				const startD = Date.parse(start)
+				const endD = end === 'Running' ? Date.now() : Date.parse(end).valueOf()
+				const todayStart = _todayEarliestDate()
+				if (todayStart.valueOf() > endD.valueOf()) {
+					return 0
+				} else {
+					return (endD.valueOf()) - (
+						startD.valueOf() < todayStart.valueOf() ? todayStart.valueOf() : startD.valueOf()
+					)
+				}
 			}
 		}).reduce((acc, ele) => acc + ele, 0)
 		return {
@@ -277,7 +292,6 @@ function addTag(config) {
 		const updated = val.replaceAll(" ", "-").replaceAll(":", "-")
 		const items = pick.items
 		items[0] = { label: updated, description: 'new tag' }
-		_log(`updated: ${updated}`)
 		pick.items = items
 	})
 	pick.onDidAccept(() => {
@@ -369,8 +383,7 @@ function startTask(config) {
 			// stop all tasks, only one task can be running, multi-tasking is forbidden. 
 			const newContent = _startTimingTask(_stopAllTasks(content), sel.label)
 			_writeFile(todayFilePath, newContent)
-			const statusBarItem = vscode.window.createStatusBarItem('left', 5)
-			statusBarItem.text = 'running'
+
 		}
 		pick.hide()
 	})
