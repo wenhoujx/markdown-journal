@@ -1,6 +1,7 @@
 const vscode = require('vscode');
 const fs = require('fs')
-const path = require('path')
+const path = require('path');
+const { getAllJSDocTags } = require('typescript');
 
 // configs 
 const configKey = 'markdown-journal'
@@ -11,7 +12,7 @@ const defaultTags = 'default-tags'
 
 const journalPrefix = 'journal'
 const journalIntervalPrefix = 'journal-interval'
-const isDebug = false
+const isDebug = true
 
 function _journalIntervalRegex() {
 	return /^- journal-interval: (.+) - (.*)$/
@@ -31,12 +32,12 @@ function _parseJournalInterval(line) {
 }
 
 function _newInterval() {
-	const now = new Date().toISOString()
+	const now = new Date().toLocaleString()
 	return `- ${journalIntervalPrefix}: ${now} - Running`
 }
 
 function _tryStopInterval(line) {
-	const now = new Date().toISOString()
+	const now = new Date().toLocaleString()
 	const parsed = _parseJournalInterval(line)
 	if (!parsed) {
 		return line
@@ -200,21 +201,39 @@ function computeTimes(config) {
 	const todayFilePath = _filePath(config.journalDir, _journalFileName(_todayDate()))
 	// parse the file without opening the file
 	const content = _getJournalContent(todayFilePath)
-	let parsed = null
-	const computeTotalTimes = content.split(/\r?\n/).reduce((acc, line) => {
-		if (_isTaskHeader(line)) {
-			acc.push({
-				line,
-				total: 0
-			})
-		} else if (parsed = _parseJournalInterval(line)) {
-			const { start, end } = parsed
-			acc[acc.length - 1].total += (end === 'Running' ? Date.now() : Date.parse(end).valueOf()) - Date.parse(start).valueOf()
+	const { header, tasks } = _splitLinesByTask(content)
+	const processTasks = tasks.map(task => {
+		const time = task.map(line => {
+			const m = _parseJournalInterval(line)
+			if (!m) {
+				return 0
+			} else {
+				const { start, end } = m
+				return (end === 'Running' ? Date.now() : Date.parse(end).valueOf()) - Date.parse(start).valueOf()
+			}
+		}).reduce((acc, ele) => acc + ele, 0)
+		return {
+			task: task[0],
+			tags: _getTaskTags(task[0]),
+			time
 		}
-		return acc
-	}, [])
-	const formatted = computeTotalTimes.flatMap(({ line, total }) => [line, _msToString(total)])
-	_openNewTextDocument(formatted.join("\n"))
+	})
+
+	const timeByTag = {}
+	for (const t of processTasks) {
+		for (const tag of t.tags) {
+			timeByTag[tag] = ((tag in timeByTag) ? timeByTag[tag] : 0) + t.time
+		}
+	}
+
+	const lines = ['By tasks', ""].concat(
+		// remove the prefix '## '
+		processTasks.map(t => `- ${t.task.slice(3)}: ${_msToString(t.time)}`))
+		.concat(['By tags', ""])
+		.concat(
+			Object.entries(timeByTag).map(([tag, time]) => `- ${tag}: ${_msToString(time)}`)
+		)
+	_openNewTextDocument(lines.join("\n"))
 }
 
 function _msToString(ms) {
@@ -249,15 +268,23 @@ function addTag(config) {
 	}
 	// now we are on the line of task header
 	const pick = vscode.window.createQuickPick()
-	pick.canSelectMany = true
 	pick.placeholder = 'select tags'
-	pick.items = _getAllTags(doc.getText(), config.tags).map(tag => ({
+	pick.matchOnDescription = true
+	pick.items = [{ label: '', description: 'new tag' }].concat(_getAllTags(doc.getText(), config.tags).map(tag => ({
 		label: tag
-	}))
+	})))
+	pick.onDidChangeValue(val => {
+		const updated = val.replaceAll(" ", "-").replaceAll(":", "-")
+		const items = pick.items
+		items[0] = { label: updated, description: 'new tag' }
+		_log(`updated: ${updated}`)
+		pick.items = items
+	})
 	pick.onDidAccept(() => {
 		const sel = _first(pick.selectedItems)
 		if (!sel) { return }
 		const tag = sel.label
+
 		const newLineText = _addTaskTag(doc.lineAt(lineNumber).text, tag)
 		_replaceLine(lineNumber, newLineText)
 		pick.hide()
@@ -310,6 +337,19 @@ function _getAllTags(content, additionalTags) {
 
 	)
 }
+function _runningTask(content) {
+	const tasks = _splitLinesByTask(content).tasks
+	const task = tasks.find(t => {
+		for (let line of t) {
+			const m = _parseJournalInterval(line)
+			if (m && (m.end === 'Running')) {
+				return true
+			}
+		}
+		return false
+	})
+	return task[0]
+}
 
 function startTask(config) {
 	const todayFilePath = _filePath(config.journalDir, _journalFileName(_todayDate()))
@@ -324,9 +364,12 @@ function startTask(config) {
 	pick.onDidAccept(() => {
 		const sel = _first(pick.selectedItems)
 		if (!sel) { return }
-		// stop all tasks, only one task can be running, multi-tasking is forbidden. 
-		const newContent = _startTimingTask(_stopAllTasks(content), sel.label)
-		_writeFile(todayFilePath, newContent)
+		const runningTask = _runningTask(content)
+		if (runningTask !== sel.label) {
+			// stop all tasks, only one task can be running, multi-tasking is forbidden. 
+			const newContent = _startTimingTask(_stopAllTasks(content), sel.label)
+			_writeFile(todayFilePath, newContent)
+		}
 		pick.hide()
 	})
 	pick.show()
