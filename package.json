@@ -30,6 +30,16 @@
   ],
   "main": "./extension.js",
   "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "markdown-journal",
+      "properties": {
+        "markdown-journal.journal-dir": {
+          "type": "string",
+          "description": "A custom full path in which journals will be stored"
+        }
+      }
+    },
     "commands": [
       {
         "command": "markdown-journal.today",
