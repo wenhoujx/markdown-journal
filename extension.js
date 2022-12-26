@@ -244,7 +244,7 @@ function computeTimes(config) {
 	const lines = ['By tasks', ""].concat(
 		// remove the prefix '## '
 		processTasks.map(t => `- ${t.task.slice(3)}: ${_msToString(t.time)}`))
-		.concat(['By tags', ""])
+		.concat(["", 'By tags', ""])
 		.concat(
 			Object.entries(timeByTag).map(([tag, time]) => `- ${tag}: ${_msToString(time)}`)
 		)
