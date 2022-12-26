@@ -2,6 +2,7 @@ const vscode = require('vscode');
 const fs = require('fs')
 const path = require('path');
 
+
 // configs 
 const configKey = 'markdown-journal'
 const journalDir = 'journal-dir'
@@ -175,14 +176,6 @@ function journals(config) {
 	pick.show()
 }
 
-async function _openNewTextDocument(content) {
-	const document = await vscode.workspace.openTextDocument({
-		language: 'markdown',
-		content
-	});
-	vscode.window.showTextDocument(document);
-}
-
 async function _openAndShowFile(filepath) {
 	const doc = await vscode.workspace.openTextDocument(
 		filepath
@@ -248,7 +241,9 @@ function computeTimes(config) {
 		.concat(
 			Object.entries(timeByTag).map(([tag, time]) => `- ${tag}: ${_msToString(time)}`)
 		)
-	_openNewTextDocument(lines.join("\n"))
+	const filepath = path.join(config.journalDir, 'compute-times.md')
+	fs.writeFileSync(filepath, lines.join("\n"))
+	_openAndShowFile(filepath)
 }
 
 function _msToString(ms) {
