@@ -23,6 +23,7 @@
   "activationEvents": [
     "onCommand:markdown-journal.today",
     "onCommand:markdown-journal.add-tag",
+    "onCommand:markdown-journal.remove-tag",
     "onCommand:markdown-journal.compute-times",
     "onCommand:markdown-journal.journals",
     "onCommand:markdown-journal.start-task",
@@ -69,6 +70,11 @@
       {
         "command": "markdown-journal.add-tag",
         "title": "Add Tag",
+        "category": "Markdown Journal"
+      },
+      {
+        "command": "markdown-journal.remove-tag",
+        "title": "Remove Tag",
         "category": "Markdown Journal"
       },
       {

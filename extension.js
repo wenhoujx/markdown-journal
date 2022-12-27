@@ -263,6 +263,41 @@ function _msToString(ms) {
 	return str
 }
 
+function removeTag(config) {
+	if (!isInJournal()) { return }
+	const sel = vscode.window.activeTextEditor.selection
+	if (!sel) { return }
+	let lineNumber = sel.start.line
+	const doc = vscode.window.activeTextEditor.document
+	while (!_isTaskHeader(doc.lineAt(lineNumber).text) && lineNumber >= 0) {
+		lineNumber--
+	}
+	if (lineNumber < 0) {
+		// no task yet 
+		return
+	}
+	// now we are on the line of task header
+	const pick = vscode.window.createQuickPick()
+	pick.canSelectMany = false
+	pick.items = _getTaskTags(doc.lineAt(lineNumber).text).map(t => ({
+		label: t
+	}))
+
+	pick.onDidAccept(() => {
+		const sel = _first(pick.selectedItems)
+		if (!sel) { return }
+		const tag = sel.label
+		const newLineText = _removeTaskTag(doc.lineAt(lineNumber).text, tag)
+		_replaceLine(lineNumber, newLineText)
+		pick.hide()
+	})
+	pick.show()
+}
+
+function _removeTaskTag(lineText, tag) {
+	return lineText.replace(`:${tag}`, "")
+}
+
 function addTag(config) {
 	if (!isInJournal()) { return }
 	const sel = vscode.window.activeTextEditor.selection
@@ -439,6 +474,7 @@ function _replaceLine(lineNumber, newLineText) {
 			new vscode.Position(lineNumber, editor.document.lineAt(lineNumber).text.length)
 		), newLineText)
 	})
+	editor.document.save()
 }
 
 function stopTask(config) {
@@ -486,6 +522,7 @@ function activate(context) {
 	context.subscriptions.push(vscode.commands.registerCommand('markdown-journal.journals', () => journals(config)));
 	context.subscriptions.push(vscode.commands.registerCommand('markdown-journal.compute-times', () => computeTimes(config)));
 	context.subscriptions.push(vscode.commands.registerCommand('markdown-journal.add-tag', () => addTag(config)));
+	context.subscriptions.push(vscode.commands.registerCommand('markdown-journal.remove-tag', () => removeTag(config)));
 	context.subscriptions.push(vscode.commands.registerCommand('markdown-journal.start-task', () => startTask(config)));
 	context.subscriptions.push(vscode.commands.registerCommand('markdown-journal.stop-task', () => stopTask(config)));
 }
